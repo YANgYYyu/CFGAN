@@ -10,21 +10,17 @@ IMPORTANT: make sure that (1) the user & item indices start from 0, and (2) the 
 """
 
 import random
-import operator
-import numpy as np
-import codecs
 from collections import defaultdict
-from operator import itemgetter
-import collections
 import torch
-from torch.autograd import variable
-def splitData():
+
+
+def split_data():
     random.seed(0)
     print("start")
     fp1 = open("data/ml_small/train.csv", mode="w")
     fp2 = open("data/ml_small/test.csv", mode="w")
     for line in open("data/ml_small/ratings.csv"):
-        if (random.randint(0, 8) == 0):
+        if random.randint(0, 8) == 0:
             fp2.writelines(line)
         else:
             fp1.writelines(line)
@@ -32,116 +28,128 @@ def splitData():
     fp1.close()
     fp2.close()
 
+
 '''加载训练集
 trainFile  str 训练集文件名
 splitMark  str 文件一行中的分隔符
 '''
-def loadTrainingData(trainFile,splitMark):
-    #trainFile = path + "/" + benchmark + "/" + benchmark + ".train"
-    print(trainFile)
 
-    trainSet = defaultdict(list) #字典默认值是一个list    trainSet['key_new'] 是个list
+
+def load_training_data(train_file, split_mark):
+    # trainFile = path + "/" + benchmark + "/" + benchmark + ".train"
+    print(train_file)
+
+    train_set = defaultdict(list)  # 字典默认值是一个list    train_set['key_new'] 是个list
     max_u_id = -1
     max_i_id = -1
 
-    for line in open(trainFile):
-        userId, itemId, rating,_ = line.strip().split(splitMark)
+    for line in open(train_file):
+        user_id, item_id, rating, _ = line.strip().split(split_mark)
 
-        userId = int(userId)
-        itemId = int(itemId)
+        user_id = int(user_id)
+        item_id = int(item_id)
 
         # note that we regard all the observed ratings as implicit feedback
-        trainSet[userId].append(itemId)
+        train_set[user_id].append(item_id)
 
-        max_u_id = max(userId, max_u_id)
-        max_i_id = max(itemId, max_i_id)
+        max_u_id = max(user_id, max_u_id)
+        max_i_id = max(item_id, max_i_id)
 
-    for u, i_list in trainSet.items():
+    for u, i_list in train_set.items():
         i_list.sort()
 
-    userCount = max_u_id + 1
-    itemCount = max_i_id + 1
+    user_count = max_u_id + 1
+    item_count = max_i_id + 1
 
-    print(userCount)
-    print(itemCount)
+    print(user_count)
+    print(item_count)
 
-    print("Training data loading done: %d users, %d items" % (userCount, itemCount))
+    print("Training data loading done: %d users, %d items" % (user_count, item_count))
 
-    return trainSet, userCount, itemCount  #此处userCount itemCount并不能代表真实值  因为可能小于测试集合中的userCount itemCount
+    return train_set, user_count, item_count  # 此处userCount itemCount并不能代表真实值  因为可能小于测试集合中的userCount item_count
+
 
 '''
 装载测试集数据
 testSet [1:[...],2[...], ...]  defaultdict(list)
 GroundTruth   [[],[], ...] 只装着item
 '''
-def loadTestData(testFile,splitMark):
-    testSet = defaultdict(list)
-    for line in open(testFile):
-        userId, itemId, rating,_ = line.strip().split(splitMark)
-        userId = int(userId)
-        itemId = int(itemId)
+
+
+def load_test_data(test_file, split_mark):
+    test_set = defaultdict(list)
+    for line in open(test_file):
+        user_id, item_id, rating, _ = line.strip().split(split_mark)
+        user_id = int(user_id)
+        item_id = int(item_id)
 
         # note that we regard all the ratings in the test set as ground truth
-        testSet[userId].append(itemId)
+        test_set[user_id].append(item_id)
 
-    GroundTruth = []
-    for u, i_list in testSet.items():
+    ground_truth = []
+    for u, i_list in test_set.items():
         tmp = []
         for j in i_list:
             tmp.append(j)
 
-        GroundTruth.append(tmp)
+        ground_truth.append(tmp)
 
     print("Test data loading done")
 
-    return testSet, GroundTruth
+    return test_set, ground_truth
 
-''' 返回量trainVector testMaskvector batchCount
+
+''' 返回量trainVector test_mask_vector batchCount
 testMaskVector 与trainVector相对应  -99999对应1
 testMaskVector + 预测结果     （然后取TOP N  相当于去掉了本来就是1的item  拿到了真实有用的预测item）
 '''
-def to_Vectors(trainSet, userCount, itemCount, userList_test, mode):
+
+
+def to_vectors(train_set, user_count, item_count, user_list_test, mode):
     # assume that the default is itemBased
 
-    testMaskDict = defaultdict(lambda: [0] * itemCount)
-    batchCount = userCount #改动  直接写成userCount
-    if mode == "itemBased":#改动  itemCount userCount互换   batchCount是物品数
-        userCount = itemCount
-        itemCount = batchCount
-        batchCount = userCount
+    test_mask_dict = defaultdict(lambda: [0] * item_count)
+    batch_count = user_count  # 改动  直接写成userCount
+    if mode == "itemBased":  # 改动  itemCount userCount互换   batchCount是物品数
+        user_count = item_count
+        item_count = batch_count
+        batch_count = user_count
 
-    trainDict = defaultdict(lambda: [0] * itemCount)
+    train_dict = defaultdict(lambda: [0] * item_count)
 
-    for userId, i_list in trainSet.items():
-        for itemId in i_list:
-            testMaskDict[userId][itemId] = -99999
+    for user_id, i_list in train_set.items():
+        for item_id in i_list:
+            test_mask_dict[user_id][item_id] = -99999
             if mode == "userBased":
-                trainDict[userId][itemId] = 1.0
+                train_dict[user_id][item_id] = 1.0
             else:
-                trainDict[itemId][userId] = 1.0
+                train_dict[item_id][user_id] = 1.0
 
-    trainVector = []
-    for batchId in range(batchCount):
-        trainVector.append(trainDict[batchId])
+    train_vector = []
+    for batchId in range(batch_count):
+        train_vector.append(train_dict[batchId])
 
-    testMaskVector = []
-    for userId in userList_test:
-        testMaskVector.append(testMaskDict[userId])
+    test_mask_vector = []
+    for user_id in user_list_test:
+        test_mask_vector.append(test_mask_dict[user_id])
 
     print("Converting to vectors done....")
 
-    return (torch.Tensor(trainVector)), torch.Tensor(testMaskVector), batchCount
-def getItemCount(fileName):
-    itemCount=0
-    for line in open(fileName):
-        L=line.split(",")
-        itemCount=max(itemCount,int(L[1]))
-    return itemCount
+    return (torch.Tensor(train_vector)), torch.Tensor(test_mask_vector), batch_count
 
-if __name__=="__main__":
-    trainSet, userCount, itemCount=loadTrainingData("data/ml-100k/u1.base","\t")
-    userCount=943+1
-    itemCount=1682+1
-    testSet, GroundTruth=loadTestData("data/ml-100k/u1.test","\t")
+
+def get_item_count(file_name):
+    item_count = 0
+    for line in open(file_name):
+        L = line.split(",")
+        item_count = max(item_count, int(L[1]))
+    return item_count
+
+
+if __name__ == "__main__":
+    train_set, user_count, item_count = load_training_data("data/ml-100k/u1.base", "\t")
+    user_count = 943 + 1
+    item_count = 1682 + 1
+    testSet, GroundTruth = load_test_data("data/ml-100k/u1.test", "\t")
     userList_test = list(testSet.keys())
-    trainVector,testMaskVector,batchCount=to_Vectors(trainSet,userCount,itemCount,userList_test,"userBased")
+    trainVector, testMaskVector, batchCount = to_vectors(train_set, user_count, item_count, userList_test, "userBased")

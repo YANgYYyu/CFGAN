@@ -9,6 +9,9 @@ import matplotlib.pyplot as plt
 
 
 def paint(x, y1, y2, y3):
+    """
+    绘图方法
+    """
     plt.title("CFGAN")
     plt.xlabel('epoch')
     # plt.ylabel('')
@@ -23,16 +26,15 @@ def paint(x, y1, y2, y3):
 
 
 def main(train_set, user_count, item_count, test_set, ground_truth, train_vector, test_mask_vector, batch_count,
-         epoch_count,
-         pro_ZR, pro_PM, arfa):
+         epoch_count, pro_ZR, pro_PM, arfa):
     X = []  # 画图数据的保存
     precision_list = []
     recall_list = []
     ndcg_list = []
     G = model.Generator(item_count)
     D = model.Discriminator(item_count)
-    G = G.cuda()
-    D = D.cuda()
+    # G = G.cuda()
+    # D = D.cuda()
     criterion1 = nn.BCELoss()  # 二分类的交叉熵
     criterion2 = nn.MSELoss(size_average=False)
     d_optimizer = torch.optim.Adam(D.parameters(), lr=0.0001)
@@ -43,10 +45,14 @@ def main(train_set, user_count, item_count, test_set, ground_truth, train_vector
     D_step = 2
     batch_size_g = 32
     batch_size_d = 32
-    real_label_g = (torch.ones(batch_size_g)).cuda()
-    fake_label_g = (torch.zeros(batch_size_g)).cuda()
-    real_label_d = (torch.ones(batch_size_d)).cuda()
-    fake_label_d = (torch.zeros(batch_size_d)).cuda()
+    # real_label_g = (torch.ones(batch_size_g)).cuda()
+    real_label_g = torch.ones(batch_size_g)
+    # fake_label_g = (torch.zeros(batch_size_g)).cuda()
+    fake_label_g = torch.zeros(batch_size_g)
+    # real_label_d = (torch.ones(batch_size_d)).cuda()
+    real_label_d = torch.ones(batch_size_d)
+    # fake_label_d = (torch.zeros(batch_size_d)).cuda()
+    fake_label_d = torch.zeros(batch_size_d)
     ZR = []
     PM = []
     for epoch in range(epoch_count):  # 训练epochCount次
@@ -63,9 +69,11 @@ def main(train_set, user_count, item_count, test_set, ground_truth, train_vector
             # maskVector1是PM方法的体现  这里要进行优化  减少程序消耗的内存
 
             left_index = random.randint(1, user_count - batch_size_d - 1)
-            real_data = (train_vector[left_index:left_index + batch_size_d]).cuda()  # MD个数据成为待训练数据
+            # real_data = (train_vector[left_index:left_index + batch_size_d]).cuda()  # MD个数据成为待训练数据
+            real_data = train_vector[left_index:left_index + batch_size_d]  # MD个数据成为待训练数据
 
-            mask_vector1 = (train_vector[left_index:left_index + batch_size_d]).cuda()
+            # mask_vector1 = (train_vector[left_index:left_index + batch_size_d]).cuda()
+            mask_vector1 = train_vector[left_index:left_index + batch_size_d]
             for i in range(len(mask_vector1)):
                 mask_vector1[i][PM[left_index + i]] = 1
             condition = real_data  # 把用户反馈数据作为他的特征 后期还要加入用户年龄、性别等信息
@@ -85,10 +93,13 @@ def main(train_set, user_count, item_count, test_set, ground_truth, train_vector
         for step in range(G_step):  # 训练G0
             # 调整maskVector2\3
             left_index = random.randint(1, user_count - batch_size_g - 1)
-            real_data = (train_vector[left_index:left_index + batch_size_g]).cuda()
+            # real_data = (train_vector[left_index:left_index + batch_size_g]).cuda()
+            real_data = train_vector[left_index:left_index + batch_size_g]
 
-            mask_vector2 = (train_vector[left_index:left_index + batch_size_g]).cuda()
-            mask_vector3 = (train_vector[left_index:left_index + batch_size_g]).cuda()
+            # mask_vector2 = (train_vector[left_index:left_index + batch_size_g]).cuda()
+            mask_vector2 = train_vector[left_index:left_index + batch_size_g]
+            # mask_vector3 = (train_vector[left_index:left_index + batch_size_g]).cuda()
+            mask_vector3 = train_vector[left_index:left_index + batch_size_g]
             for i in range(len(mask_vector2)):
                 mask_vector2[i][PM[i + left_index]] = 1
                 mask_vector3[i][ZR[i + left_index]] = 1
@@ -111,9 +122,11 @@ def main(train_set, user_count, item_count, test_set, ground_truth, train_vector
             recalls = 0
             ndcgs = 0
             for testUser in test_set.keys():
-                data = (train_vector[testUser]).cuda()
+                # data = (train_vector[testUser]).cuda()
+                data = train_vector[testUser]
 
-                result = G(data) + (test_mask_vector[index]).cuda()
+                # result = G(data) + (test_mask_vector[index]).cuda()
+                result = G(data) + test_mask_vector[index]
                 index += 1
                 precision, recall, ndcg = evaluation.compute_top_n_accuracy(test_set[testUser], result,
                                                                             recommend_amount)

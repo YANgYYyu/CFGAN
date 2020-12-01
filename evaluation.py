@@ -1,14 +1,13 @@
 import math
 
-'''
-衡量预测效果
-groundTruth:真实结果
-result:预测向量  此量经过了+testMaskVector操作处理  已经剔除掉训练集中用户有过反映的量
-topN：取几个预测结果
-'''
-
 
 def compute_top_n_accuracy(ground_truth, result, top_n):
+    """
+    衡量预测效果
+    groundTruth:真实结果
+    result:预测向量  此量经过了+testMaskVector操作处理  已经剔除掉训练集中用户有过反映的量
+    topN：取几个预测结果
+    """
     result = result.tolist()
     for i in range(len(result)):
         result[i] = (result[i], i)
